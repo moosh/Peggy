@@ -201,7 +201,7 @@ function dumpLeaderboard()
 		if (scoreGroup != undefined)
 		{
 			logTrace(scoreGroup.length+" solutions have "+score+" pegs remaining\n");
-			if (score == 1)
+			if (scoreGroup.length == 1)
 			{
 				for (nodeIdx = 0; nodeIdx < scoreGroup.length; nodeIdx++)
 				{
