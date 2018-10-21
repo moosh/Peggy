@@ -14,7 +14,7 @@
 
 var mLog = document.getElementById("loginfo");
 
-const kStartingPegHole = 11;
+const kStartingPegHole = 7;
 const kPegHoleCount = 15;
 const HOLE = ".";
 const PEG = "O";
@@ -62,6 +62,17 @@ initialize();
 function initialize()
 {
 	clearLog();
+	logTrace("Peggy 1.0.\n\n");
+	logTrace("Welcome to Peggy, the peg game solver.\n");
+	logTrace("\n");
+	logTrace("\n");
+	logTrace("Pegs jump one another if a hole\n");
+	logTrace("is next to the jumped peg.\n\n");
+	logTrace("Here's a game board with\n");
+	logTrace("the starting hole at position 7:\n");
+	logTrace("\n");
+	logPegBoard(PegBoard(7));
+	logTrace("Run Peggy to solve this game board.\n");
 }
 
 /*******************************************************************************
@@ -69,7 +80,7 @@ function initialize()
 *******************************************************************************/	
 function logTrace(inString)
 {
-	const kMaxLines = 50;
+	const kMaxLines = 20;
 	var lines = mLog.value.split(/\n/).length;
 	
 	mLog.value += inString;
@@ -79,12 +90,21 @@ function logTrace(inString)
 }
 
 /*******************************************************************************
+   $("#exampleWindow").on("popupbeforeposition", function(evt, ui){
 
+        $(this).find("textarea").scrollTop(0);
+
+    });
 *******************************************************************************/	
 function clearLog()
 {
+	//mLog.focus();
+	mLog.scrollTop = 0;
 	mLog.value = "";
 	mLog.rows = 1;
+	mLog.selectionStart = 0;
+	mLog.selectionEnd = 0;
+
 }
 
 /*******************************************************************************
@@ -98,20 +118,6 @@ function logPegBoard(inPB)
 	logTrace("             "+inPB[6]+"   "+inPB[7]+"   "+inPB[8]+"   "+inPB[9]+"\n");
 	logTrace("           "+inPB[10]+"   "+inPB[11]+"   "+inPB[12]+"   "+inPB[13]+"   "+inPB[14]+"\n");
 	logTrace("\n");
-}
-
-/*******************************************************************************
- 
-*******************************************************************************/	
-function logPegBoardIndex()
-{
-	// This is mostly for debug purposes.
-	logTrace("              \n");
-	logTrace("       0      \n");
-	logTrace("      1 2     \n");
-	logTrace("    3  4  5   \n");
-	logTrace("  6  7  8  9  \n");
-	logTrace("10 11 12 13 14\n");
 }
 
 /*******************************************************************************
@@ -294,19 +300,28 @@ function solve(inGameNode)
 $('.play-button').click(function()
 {
 	clearLog();
-	logTrace("Welcome to Peggy, the peg game solver.\n");
+	logTrace("Peggy see's the game board as a number from 0 to 14:\n");
+	logTrace("\n");
+	logTrace("             0      \n");
+	logTrace("            1 2     \n");
+	logTrace("          3  4  5   \n");
+	logTrace("        6  7  8  9  \n");
+	logTrace("      10 11 12 13 14\n");
+	logTrace("\n");
 		
 	var startingGameNode = GameNode();
 	startingGameNode.pegBoard = PegBoard(kStartingPegHole);
 	
-	logTrace("\n\n");
-	logTrace("Starting board with hole at position "+kStartingPegHole+"\n");
+	logTrace("Starting a game with hole at position "+kStartingPegHole+"\n");
+	logTrace("Pegs are shown by '"+PEG+"' Holes are shown by '"+HOLE+"'\n");
 		
 	solve(startingGameNode);
 	
 	logTrace("\n\n");
 	dumpLeaderboard();
-	
+
+	mLog.selectionStart = 0;	
+	mLog.selectionEnd = 0;	
 });
 
 
