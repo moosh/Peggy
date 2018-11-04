@@ -1,7 +1,7 @@
 /*******************************************************************************
 
 	main.js
-	Copyright (c) 2017 NiftyK LLC
+	Copyright (c) 2018 NiftyK LLC
 	All Rights Reserved.
 	
 	The Peggy game board is made up of holes filled with pegs or marbles. In the code
