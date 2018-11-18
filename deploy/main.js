@@ -53,6 +53,29 @@ var mKnownGameStates = new Map();
 var mLeaderboard = new Map();
 
 var mSolveDepth = 0;
+var mGamePieces = [];
+var mScore;
+var myObstacles = [];
+var mGameBoardSize = {width:800, height:600};
+
+
+/*******************************************************************************
+
+*******************************************************************************/	
+var mGameArea = {
+    canvas : document.getElementById("game-board"),
+    start : function() {
+		this.canvas.width = mGameBoardSize.width;
+		this.canvas.height = mGameBoardSize.height;
+		this.context = this.canvas.getContext("2d");
+		this.frameNo = 0;
+		this.interval = setInterval(updateGameArea, 20);
+	},
+	
+    clear : function() {
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+}
 
 initialize();
 
@@ -61,18 +84,149 @@ initialize();
 *******************************************************************************/	
 function initialize()
 {
-	clearLog();
-	logTrace("Peggy 1.0.\n\n");
-	logTrace("Welcome to Peggy, the peg game solver.\n");
-	logTrace("\n");
-	logTrace("\n");
-	logTrace("Pegs jump one another if a hole\n");
-	logTrace("is next to the jumped peg.\n\n");
-	logTrace("Here's a game board with\n");
-	logTrace("the starting hole at position 7:\n");
-	logTrace("\n");
-	logPegBoard(PegBoard(7));
-	logTrace("Run Peggy to solve this game board.\n");
+// 	clearLog();
+// 	logTrace("Peggy 1.0.\n\n");
+// 	logTrace("Welcome to Peggy, the peg game solver.\n");
+// 	logTrace("\n");
+// 	logTrace("\n");
+// 	logTrace("Pegs jump one another if a hole\n");
+// 	logTrace("is next to the jumped peg.\n\n");
+// 	logTrace("Here's a game board with\n");
+// 	logTrace("the starting hole at position 7:\n");
+// 	logTrace("\n");
+// 	logPegBoard(PegBoard(7));
+// 	logTrace("Run Peggy to solve this game board.\n");
+
+	startGame();
+}
+
+/*******************************************************************************
+
+*******************************************************************************/	
+function startGame()
+{
+	const kPegMargin = 130;
+	const kNumRows = 5;
+	const kPegSize = 30;
+
+	var x, y, pegIdx = 0;
+	var pegsInRow = 0;
+	var centerX = mGameBoardSize.width / 2;
+	for (row=0; row < kNumRows; row++)
+	{
+		pegsInRow = row+1;
+		y = (2 * row + 1) * mGameBoardSize.height / (2*kNumRows) - 0.5*kPegSize;
+		x = centerX - row * 0.5 * kPegMargin - 0.5*kPegSize;
+		for (peg=0; peg < pegsInRow; peg++)
+		{
+			if (pegIdx == kStartingPegHole)
+				mGamePieces[pegIdx] = new component(30, kPegSize, "rgba(255, 255, 255, 0.05)", x, y);
+			else
+				mGamePieces[pegIdx] = new component(30, kPegSize, "green", x, y);
+			
+			pegIdx++;
+			x += kPegMargin;
+		}
+	}
+	
+//    mScore = new component("30px", "Consolas", "black", 280, 40, "text");
+    mGameArea.start();
+}
+
+/*******************************************************************************
+
+*******************************************************************************/	
+function component(width, height, color, x, y, type) {
+    this.type = type;
+    this.score = 0;
+    this.width = width;
+    this.height = height;
+    this.speedX = 0;
+    this.speedY = 0;    
+    this.x = x;
+    this.y = y;
+    this.gravity = 0.05;
+    this.gravitySpeed = 0;
+    this.update = function() {
+        ctx = mGameArea.context;
+        if (this.type == "text") {
+            ctx.font = this.width + " " + this.height;
+            ctx.fillStyle = color;
+            ctx.fillText(this.text, this.x, this.y);
+        } else {
+            ctx.fillStyle = color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    }
+    this.newPos = function() {
+        this.gravitySpeed += this.gravity;
+        this.x += this.speedX;
+        this.y += this.speedY + this.gravitySpeed;
+        this.hitBottom();
+    }
+    this.hitBottom = function() {
+        var rockbottom = mGameArea.canvas.height - this.height;
+        if (this.y > rockbottom) {
+            this.y = rockbottom;
+            this.gravitySpeed = 0;
+        }
+    }
+    this.crashWith = function(otherobj) {
+        var myleft = this.x;
+        var myright = this.x + (this.width);
+        var mytop = this.y;
+        var mybottom = this.y + (this.height);
+        var otherleft = otherobj.x;
+        var otherright = otherobj.x + (otherobj.width);
+        var othertop = otherobj.y;
+        var otherbottom = otherobj.y + (otherobj.height);
+        var crash = true;
+        if ((mybottom < othertop) || (mytop > otherbottom) || (myright < otherleft) || (myleft > otherright)) {
+            crash = false;
+        }
+        return crash;
+    }
+}
+
+/*******************************************************************************
+
+*******************************************************************************/	
+function updateGameArea() {
+    var x, height, gap, minHeight, maxHeight, minGap, maxGap;
+
+    mGameArea.clear();
+    mGameArea.frameNo += 1;
+//     if (mGameArea.frameNo == 1 || everyinterval(150)) {
+//         x = mGameArea.canvas.width;
+//         minHeight = 20;
+//         maxHeight = 500;
+//         height = Math.floor(Math.random()*(maxHeight-minHeight+1)+minHeight);
+//         minGap = 50;
+//         maxGap = 500;
+//         gap = Math.floor(Math.random()*(maxGap-minGap+1)+minGap);
+//         myObstacles.push(new component(10, height, "green", x, 0));
+//         myObstacles.push(new component(10, x - height - gap, "green", x, height + gap));
+//     }
+//     for (i = 0; i < myObstacles.length; i += 1) {
+//         myObstacles[i].x += -1;
+//         myObstacles[i].update();
+//     }
+//     mScore.text="SCORE: " + mGameArea.frameNo;
+//     mScore.update();
+
+	for (i=0; i<mGamePieces.length; i++)
+	{
+		mGamePieces[i].update();
+	
+	}
+}
+
+/*******************************************************************************
+
+*******************************************************************************/	
+function everyinterval(n) {
+    if ((mGameArea.frameNo / n) % 1 == 0) {return true;}
+    return false;
 }
 
 /*******************************************************************************
@@ -297,6 +451,22 @@ function solve(inGameNode)
 /*******************************************************************************
 
 *******************************************************************************/	
+$('.play-button').mousedown(function()
+{
+	accelerate(-0.2);
+});
+
+/*******************************************************************************
+
+*******************************************************************************/	
+$('.play-button').mouseup(function()
+{
+	accelerate(0.05);
+});
+
+/*******************************************************************************
+
+*******************************************************************************	
 $('.play-button').click(function()
 {
 	clearLog();
@@ -324,6 +494,28 @@ $('.play-button').click(function()
 	mLog.selectionEnd = 0;	
 });
 
+/*******************************************************************************
+
+*******************************************************************************/
+$('.peg').mouseover(function()
+{
+	const kDelta = -64;
+	var xPos = 0;
+	
+	var pegID = this.id;
+	setInterval(function() {
+		document.getElementById(pegID).style.backgroundPosition = `${xPos}px 0px`;
+		//document.getElementsByClassName('peg')[0].style.backgroundPosition = `${xPos}px 0px`;		
+		//document.getElementByClassName("peg").style.backgroundPosition = `${xPos}px 0px`;
+		xPos = xPos + kDelta;
+		if (xPos < -512)
+			xPos = 0;
+	}, 200);
+});
+
+/*******************************************************************************
+
+*******************************************************************************/	
 
 }(jQuery));
 
