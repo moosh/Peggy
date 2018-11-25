@@ -13,8 +13,14 @@
 {
 
 var mLog = document.getElementById("loginfo");
+var mCanvas = document.getElementById("game-board");
 
-const kStartingPegHole = 7;
+const kIdleState 		= 0;
+const kClickFromState 	= 1;
+const kClickToState		= 2;
+	
+const kBorderWidth = 10; // How to get this from mCanvas? mCanvas.style.border.width doesn't work
+const kStartingPegHole = 11;
 const kPegHoleCount = 15;
 const HOLE = ".";
 const PEG = "O";
@@ -40,6 +46,8 @@ const mJumpMap =
 	14: [{from:5,over:9,to:14}, {from:12,over:13,to:14}]
 };
 
+const mFromToMap = new Map();
+
 // This map keeps track of known peg boards. If a peg board is known to Peggy
 // it will not be searched a second time for new moves. The map is made up
 // of (key, value) pairs where key is a pegboard and value is an associated
@@ -55,15 +63,17 @@ var mLeaderboard = new Map();
 var mSolveDepth = 0;
 var mGamePieces = [];
 var mScore;
-var myObstacles = [];
 var mGameBoardSize = {width:800, height:600};
-
+var mCurrentBoard;
+var mStartingGameNode = GameNode();
+var mGameState = kIdleState;
+var mFromPegIdx = -1;
 
 /*******************************************************************************
 
 *******************************************************************************/	
 var mGameArea = {
-    canvas : document.getElementById("game-board"),
+    canvas : mCanvas,
     start : function() {
 		this.canvas.width = mGameBoardSize.width;
 		this.canvas.height = mGameBoardSize.height;
@@ -78,6 +88,49 @@ var mGameArea = {
 }
 
 initialize();
+
+/*******************************************************************************
+
+*******************************************************************************/	
+function initFromToMap()
+{
+	mFromToMap.set('0,5', 2);
+	mFromToMap.set('0,3', 1);
+	mFromToMap.set('1,6', 3);
+	mFromToMap.set('1,8', 4);
+	mFromToMap.set('2,7', 4);
+	mFromToMap.set('2,9', 5);
+	mFromToMap.set('3,12', 7);
+	mFromToMap.set('3,10', 6);
+	mFromToMap.set('3,5', 4);
+	mFromToMap.set('3,0', 1);
+	mFromToMap.set('4,13', 8);
+	mFromToMap.set('4,11', 7);
+	mFromToMap.set('5,12', 8);
+	mFromToMap.set('5,3', 4);
+	mFromToMap.set('5,14', 9);
+	mFromToMap.set('5,0', 2);
+	mFromToMap.set('6,8', 7);
+	mFromToMap.set('6,1', 3);
+	mFromToMap.set('7,9', 8);
+	mFromToMap.set('7,2', 4);
+	mFromToMap.set('8,6', 7);
+	mFromToMap.set('8,1', 4);
+	mFromToMap.set('9,7', 8);
+	mFromToMap.set('9,2', 5);
+	mFromToMap.set('10,12', 11); 
+	mFromToMap.set('10,3', 6);
+	mFromToMap.set('11,4', 7);
+	mFromToMap.set('11,13', 12);
+	mFromToMap.set('12,5', 8);
+	mFromToMap.set('12,3', 7);
+	mFromToMap.set('12,14', 13);
+	mFromToMap.set('12,10', 11);
+	mFromToMap.set('13,11', 12);
+	mFromToMap.set('13,4', 8);
+	mFromToMap.set('14,5', 9);
+	mFromToMap.set('14,12', 13);
+}
 
 /*******************************************************************************
 
@@ -97,6 +150,7 @@ function initialize()
 // 	logPegBoard(PegBoard(7));
 // 	logTrace("Run Peggy to solve this game board.\n");
 
+	initFromToMap();
 	startGame();
 }
 
@@ -112,6 +166,9 @@ function startGame()
 	var x, y, pegIdx = 0;
 	var pegsInRow = 0;
 	var centerX = mGameBoardSize.width / 2;
+
+	mCurrentBoard = PegBoard(kStartingPegHole);
+
 	for (row=0; row < kNumRows; row++)
 	{
 		pegsInRow = row+1;
@@ -119,18 +176,66 @@ function startGame()
 		x = centerX - row * 0.5 * kPegMargin - 0.5*kPegSize;
 		for (peg=0; peg < pegsInRow; peg++)
 		{
-			if (pegIdx == kStartingPegHole)
-				mGamePieces[pegIdx] = new component(30, kPegSize, "rgba(255, 255, 255, 0.05)", x, y);
-			else
-				mGamePieces[pegIdx] = new component(30, kPegSize, "green", x, y);
-			
+			mGamePieces[pegIdx] = new component(30, kPegSize, "red", x, y);			
 			pegIdx++;
 			x += kPegMargin;
 		}
 	}
+
+	mStartingGameNode.pegBoard = PegBoard(kStartingPegHole);
+	solve(mStartingGameNode);
 	
-//    mScore = new component("30px", "Consolas", "black", 280, 40, "text");
+	// At this point the game has been "solved" meaning it's possible to say things
+	// about a given peg board.
+	
     mGameArea.start();
+}
+
+/*******************************************************************************
+
+*******************************************************************************/	
+function advanceGame(inLatestPegHit)
+{
+	var bDone = false;
+	
+	while (!bDone)
+	{
+		switch (mGameState)
+		{
+			case kIdleState:
+			{
+				if (mCurrentBoard[inLatestPegHit] == PEG)
+				{
+					mGameState = kClickFromState;
+					mFromPegIdx = inLatestPegHit;
+				}
+				
+				bDone = true;
+				break;
+			}
+			
+			case kClickFromState:
+			{
+				if (mCurrentBoard[inLatestPegHit] == HOLE)
+					mGameState = kClickToState;
+				else
+					bDone = true;		
+				break;
+			}
+			
+			case kClickToState:
+			{
+				var move = findMove(mFromPegIdx, inLatestPegHit);
+				if (move != null)
+					mCurrentBoard = applyMove(mCurrentBoard, move);
+				
+				mGameState = kIdleState;
+				mFromPegIdx = -1;
+				bDone = true;
+				break;
+			}
+		}
+	}	
 }
 
 /*******************************************************************************
@@ -147,14 +252,15 @@ function component(width, height, color, x, y, type) {
     this.y = y;
     this.gravity = 0.05;
     this.gravitySpeed = 0;
+    this.color = color;
     this.update = function() {
         ctx = mGameArea.context;
         if (this.type == "text") {
             ctx.font = this.width + " " + this.height;
-            ctx.fillStyle = color;
+            ctx.fillStyle = this.color;
             ctx.fillText(this.text, this.x, this.y);
         } else {
-            ctx.fillStyle = color;
+            ctx.fillStyle = this.color;
             ctx.fillRect(this.x, this.y, this.width, this.height);
         }
     }
@@ -186,6 +292,21 @@ function component(width, height, color, x, y, type) {
         }
         return crash;
     }
+    this.isHit = function(inX, inY) {
+    	var outHit = false;
+    	var canvasX, canvasY;
+    	canvasX = inX - kBorderWidth;
+    	canvasY = inY - kBorderWidth;
+    	if (canvasX >= this.x && canvasX < (this.x+this.width))
+    	{
+    		if (canvasY >= this.y && canvasY < (this.y+this.height))
+    		{
+    			outHit = true;
+    		}
+    	}
+    		
+    	return outHit;
+    }
 }
 
 /*******************************************************************************
@@ -196,28 +317,22 @@ function updateGameArea() {
 
     mGameArea.clear();
     mGameArea.frameNo += 1;
-//     if (mGameArea.frameNo == 1 || everyinterval(150)) {
-//         x = mGameArea.canvas.width;
-//         minHeight = 20;
-//         maxHeight = 500;
-//         height = Math.floor(Math.random()*(maxHeight-minHeight+1)+minHeight);
-//         minGap = 50;
-//         maxGap = 500;
-//         gap = Math.floor(Math.random()*(maxGap-minGap+1)+minGap);
-//         myObstacles.push(new component(10, height, "green", x, 0));
-//         myObstacles.push(new component(10, x - height - gap, "green", x, height + gap));
-//     }
-//     for (i = 0; i < myObstacles.length; i += 1) {
-//         myObstacles[i].x += -1;
-//         myObstacles[i].update();
-//     }
-//     mScore.text="SCORE: " + mGameArea.frameNo;
-//     mScore.update();
 
 	for (i=0; i<mGamePieces.length; i++)
 	{
+		var color;
+		if (mCurrentBoard[i] == PEG)
+		{
+			if (mFromPegIdx == i)
+				color = "lightgreen";
+			else
+				color = "green";
+		}
+		else
+			color = "rgba(255, 255, 255, 0.05)";
+			
+		mGamePieces[i].color = color;
 		mGamePieces[i].update();
-	
 	}
 }
 
@@ -227,6 +342,25 @@ function updateGameArea() {
 function everyinterval(n) {
     if ((mGameArea.frameNo / n) % 1 == 0) {return true;}
     return false;
+}
+
+/*******************************************************************************
+
+*******************************************************************************/	
+function canvasHitTest(xPos, yPos)
+{
+	var outIndex = -1;
+
+	for (i=0; i<mGamePieces.length; i++)
+	{
+		if (mGamePieces[i].isHit(xPos, yPos))
+		{
+			outIndex = i;
+			break;
+		}
+	}
+
+	return outIndex;
 }
 
 /*******************************************************************************
@@ -381,6 +515,19 @@ function dumpLeaderboard()
 /*******************************************************************************
 
 *******************************************************************************/	
+function findMove(inFromIdx, inToIdx)
+{
+	var m = inFromIdx + "," + inToIdx;
+	var ov = mFromToMap.get(m);
+	if (typeof ov != 'undefined')
+		return {from:inFromIdx, over:ov, to:inToIdx};
+	else
+		return null;
+}
+
+/*******************************************************************************
+
+*******************************************************************************/	
 function applyMove(inPegBoard, inMove)
 {
 	var outVal = inPegBoard;
@@ -390,6 +537,14 @@ function applyMove(inPegBoard, inMove)
 	outVal = outVal.substring(0, inMove.to) + PEG + outVal.substring(inMove.to+1);
 
 	return outVal;
+}
+
+/*******************************************************************************
+
+*******************************************************************************/	
+function isValidMove(inPegBoard, inMove)
+{
+	return (inPegBoard[inMove.from] == PEG && inPegBoard[inMove.over] == PEG && inPegBoard[inMove.to] == HOLE);
 }
 
 /*******************************************************************************
@@ -413,7 +568,7 @@ function solve(inGameNode)
 					foundValidMove = true;
 					
 					// Found a valid move. Update the peg board and set up a new game state
-					var nextBoard = applyMove(inGameNode.pegBoard.slice(0), move); 					
+					var nextBoard = applyMove(inGameNode.pegBoard.slice(0), move); 	// slice makes a copy of the string				
 					var nextNode = mKnownGameStates.get(nextBoard);
 					if (nextNode!=undefined)
 					{
@@ -451,7 +606,7 @@ function solve(inGameNode)
 /*******************************************************************************
 
 *******************************************************************************/	
-$('.play-button').mousedown(function()
+$('.play-button').mousedown(function playButtonMouseDown()
 {
 	accelerate(-0.2);
 });
@@ -459,7 +614,7 @@ $('.play-button').mousedown(function()
 /*******************************************************************************
 
 *******************************************************************************/	
-$('.play-button').mouseup(function()
+$('.play-button').mouseup(function playButtonMouseUp()
 {
 	accelerate(0.05);
 });
@@ -497,20 +652,16 @@ $('.play-button').click(function()
 /*******************************************************************************
 
 *******************************************************************************/
-$('.peg').mouseover(function()
+$('#game-board').click(function gameBoardClick(e)
 {
-	const kDelta = -64;
-	var xPos = 0;
-	
-	var pegID = this.id;
-	setInterval(function() {
-		document.getElementById(pegID).style.backgroundPosition = `${xPos}px 0px`;
-		//document.getElementsByClassName('peg')[0].style.backgroundPosition = `${xPos}px 0px`;		
-		//document.getElementByClassName("peg").style.backgroundPosition = `${xPos}px 0px`;
-		xPos = xPos + kDelta;
-		if (xPos < -512)
-			xPos = 0;
-	}, 200);
+    var rect = mCanvas.getBoundingClientRect();
+    var x = e.clientX - rect.left;
+    var y = e.clientY - rect.top;
+	var pegIdx = canvasHitTest(x, y);
+	if (pegIdx != -1)
+	{
+		advanceGame(pegIdx);
+	}
 });
 
 /*******************************************************************************
