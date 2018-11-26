@@ -68,6 +68,7 @@ var mCurrentBoard;
 var mStartingGameNode = GameNode();
 var mGameState = kIdleState;
 var mFromPegIdx = -1;
+var mErrorState = 0;
 
 /*******************************************************************************
 
@@ -219,7 +220,19 @@ function advanceGame(inLatestPegHit)
 				if (mCurrentBoard[inLatestPegHit] == HOLE)
 					mGameState = kClickToState;
 				else
+				{
+					// If user clicked on their selected peg, deselect it. Error otherwise
+					if (inLatestPegHit != mFromPegIdx)
+						mErrorState = 2;
+					else
+					{
+						mFromPegIdx = -1;
+						mGameState = kIdleState;
+					}
+					
 					bDone = true;		
+				}
+				
 				break;
 			}
 			
@@ -228,6 +241,10 @@ function advanceGame(inLatestPegHit)
 				var move = findMove(mFromPegIdx, inLatestPegHit);
 				if (move != null)
 					mCurrentBoard = applyMove(mCurrentBoard, move);
+				else
+				{
+					mErrorState = 2;
+				}
 				
 				mGameState = kIdleState;
 				mFromPegIdx = -1;
@@ -236,6 +253,44 @@ function advanceGame(inLatestPegHit)
 			}
 		}
 	}	
+}
+
+/*******************************************************************************
+
+*******************************************************************************/	
+function updateGameArea() {
+    var x, height, gap, minHeight, maxHeight, minGap, maxGap;
+
+    mGameArea.clear();
+    mGameArea.frameNo += 1;
+    
+    if (mErrorState>0)
+    {
+		var ctx = mCanvas.getContext("2d");
+		
+		ctx.fillStyle = "red";
+		ctx.fillRect(0, 0, mCanvas.width, mCanvas.height);
+		mErrorState--;   	
+    }
+    else
+    {
+		for (i=0; i<mGamePieces.length; i++)
+		{
+			var color;
+			if (mCurrentBoard[i] == PEG)
+			{
+				if (mFromPegIdx == i)
+					color = "lightgreen";
+				else
+					color = "green";
+			}
+			else
+				color = "rgba(255, 255, 255, 0.05)";
+			
+			mGamePieces[i].color = color;
+			mGamePieces[i].update();
+		}
+    }
 }
 
 /*******************************************************************************
@@ -312,41 +367,6 @@ function component(width, height, color, x, y, type) {
 /*******************************************************************************
 
 *******************************************************************************/	
-function updateGameArea() {
-    var x, height, gap, minHeight, maxHeight, minGap, maxGap;
-
-    mGameArea.clear();
-    mGameArea.frameNo += 1;
-
-	for (i=0; i<mGamePieces.length; i++)
-	{
-		var color;
-		if (mCurrentBoard[i] == PEG)
-		{
-			if (mFromPegIdx == i)
-				color = "lightgreen";
-			else
-				color = "green";
-		}
-		else
-			color = "rgba(255, 255, 255, 0.05)";
-			
-		mGamePieces[i].color = color;
-		mGamePieces[i].update();
-	}
-}
-
-/*******************************************************************************
-
-*******************************************************************************/	
-function everyinterval(n) {
-    if ((mGameArea.frameNo / n) % 1 == 0) {return true;}
-    return false;
-}
-
-/*******************************************************************************
-
-*******************************************************************************/	
 function canvasHitTest(xPos, yPos)
 {
 	var outIndex = -1;
@@ -398,8 +418,7 @@ function clearLog()
 /*******************************************************************************
 
 *******************************************************************************/	
-function logPegBoard(inPB)
-{
+function logPegBoard(inPB) {
 	logTrace("                   "+inPB[0]+"\n");
 	logTrace("                 "+inPB[1]+"   "+inPB[2]+"\n");
 	logTrace("               "+inPB[3]+"   "+inPB[4]+"   "+inPB[5]+"\n");
@@ -411,8 +430,7 @@ function logPegBoard(inPB)
 /*******************************************************************************
 
 *******************************************************************************/	
-function PegBoard(inStartingHole)
-{
+function PegBoard(inStartingHole) {
 	// A peg board is an array peg locations. At each location is either a HOLE or
 	// PEG. Peg boards start "full" of pegs with just one hole, the starting hole.
 	
@@ -432,8 +450,7 @@ function PegBoard(inStartingHole)
 /*******************************************************************************
 
 *******************************************************************************/	
-function GameNode()
-{
+function GameNode() {
 	var outNode = {};
 	outNode.pegBoard = null;
 	outNode.move = null;
@@ -445,8 +462,7 @@ function GameNode()
 /*******************************************************************************
 
 *******************************************************************************/	
-function pegCount(inPegBoard)
-{
+function pegCount(inPegBoard) {
 	var numPegs = 0;
 	
 	for (i=0; i < kPegHoleCount; i++)
@@ -461,8 +477,7 @@ function pegCount(inPegBoard)
 /*******************************************************************************
 
 *******************************************************************************/	
-function updateLeaderboard(inGameNode)
-{
+function updateLeaderboard(inGameNode) {
 	var score = pegCount(inGameNode.pegBoard);
 	
 	var nodes = mLeaderboard.get(score);
@@ -481,8 +496,7 @@ function updateLeaderboard(inGameNode)
 /*******************************************************************************
 
 *******************************************************************************/	
-function dumpLeaderboard()
-{
+function dumpLeaderboard() {
 	for (score=0; score < kPegHoleCount; score++)
 	{
 		var scoreGroup = mLeaderboard.get(score);
@@ -550,8 +564,7 @@ function isValidMove(inPegBoard, inMove)
 /*******************************************************************************
 
 *******************************************************************************/	
-function solve(inGameNode)
-{
+function solve(inGameNode) {
 	mSolveDepth += 1;
 
 	var foundValidMove = false;	
