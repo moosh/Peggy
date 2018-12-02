@@ -14,13 +14,17 @@
 
 var mLog = document.getElementById("loginfo");
 var mCanvas = document.getElementById("game-board");
+var mModal = document.getElementById('myModal');
+var mSpan = document.getElementsByClassName("close-button")[0];
+var mModalText = document.getElementById("modal-text");
+var mHoleNavContainer = document.getElementById("hole-nav");
+var mHoleNavButtons = mHoleNavContainer.getElementsByClassName("hole-nav-btn");
 
 const kIdleState 		= 0;
 const kClickFromState 	= 1;
 const kClickToState		= 2;
 	
 const kBorderWidth = 10; // How to get this from mCanvas? mCanvas.style.border.width doesn't work
-const kStartingPegHole = 11;
 const kPegHoleCount = 15;
 const HOLE = ".";
 const PEG = "O";
@@ -69,6 +73,7 @@ var mStartingGameNode = GameNode();
 var mGameState = kIdleState;
 var mFromPegIdx = -1;
 var mErrorState = 0;
+var mStartingPegHole = 11;
 
 /*******************************************************************************
 
@@ -151,8 +156,36 @@ function initialize()
 // 	logPegBoard(PegBoard(7));
 // 	logTrace("Run Peggy to solve this game board.\n");
 
+	initHoleNavBar();
 	initFromToMap();
 	startGame();
+}
+
+/*******************************************************************************
+
+*******************************************************************************/	
+function initHoleNavBar()
+{
+	// Loop through the buttons and add the active class to the current/clicked button
+	for (var i = 0; i < mHoleNavButtons.length; i++) {
+		mHoleNavButtons[i].addEventListener("click", function() {
+			var idx = 0;
+			var current = document.getElementsByClassName("active");
+			current[0].className = current[0].className.replace(" active", "");
+			this.className += " active";
+			
+			for (var j = 0; j < mHoleNavButtons.length; j++) {
+				
+				if (mHoleNavButtons[j] == current[0])
+				{
+					handleNavClick(idx);
+					break;
+				}
+				
+				idx++;
+			}
+		});
+	} 
 }
 
 /*******************************************************************************
@@ -168,7 +201,7 @@ function startGame()
 	var pegsInRow = 0;
 	var centerX = mGameBoardSize.width / 2;
 
-	mCurrentBoard = PegBoard(kStartingPegHole);
+	mCurrentBoard = PegBoard(mStartingPegHole);
 
 	for (row=0; row < kNumRows; row++)
 	{
@@ -177,13 +210,17 @@ function startGame()
 		x = centerX - row * 0.5 * kPegMargin - 0.5*kPegSize;
 		for (peg=0; peg < pegsInRow; peg++)
 		{
-			mGamePieces[pegIdx] = new component(30, kPegSize, "red", x, y);			
+			mGamePieces[pegIdx] = new component(x, y, kPegSize, kPegSize, "red");			
 			pegIdx++;
 			x += kPegMargin;
 		}
 	}
+	
+ 	mGameState = kIdleState;
+ 	mFromPegIdx = -1;
+	mScore = new component(20, 50, "30px", "Consolas", "lightblue", "text");
 
-	mStartingGameNode.pegBoard = PegBoard(kStartingPegHole);
+	mStartingGameNode.pegBoard = PegBoard(mStartingPegHole);
 	solve(mStartingGameNode);
 	
 	// At this point the game has been "solved" meaning it's possible to say things
@@ -290,13 +327,17 @@ function updateGameArea() {
 			mGamePieces[i].color = color;
 			mGamePieces[i].update();
 		}
+
+		var gameNode = mKnownGameStates.get(mCurrentBoard);
+		mScore.text = "Score: 500 doofs";
+		mScore.update();
     }
 }
 
 /*******************************************************************************
 
 *******************************************************************************/	
-function component(width, height, color, x, y, type) {
+function component(x, y, width, height, color, type) {
     this.type = type;
     this.score = 0;
     this.width = width;
@@ -529,6 +570,15 @@ function dumpLeaderboard() {
 /*******************************************************************************
 
 *******************************************************************************/	
+function handleNavClick(inIdx)
+{
+	mStartingPegHole = inIdx;
+	startGame();
+}
+
+/*******************************************************************************
+
+*******************************************************************************/	
 function findMove(inFromIdx, inToIdx)
 {
 	var m = inFromIdx + "," + inToIdx;
@@ -618,49 +668,30 @@ function solve(inGameNode) {
 
 /*******************************************************************************
 
-*******************************************************************************/	
-$('.play-button').mousedown(function playButtonMouseDown()
-{
-	accelerate(-0.2);
-});
-
-/*******************************************************************************
-
-*******************************************************************************/	
-$('.play-button').mouseup(function playButtonMouseUp()
-{
-	accelerate(0.05);
-});
-
-/*******************************************************************************
-
-*******************************************************************************	
+*******************************************************************************/
 $('.play-button').click(function()
 {
-	clearLog();
-	logTrace("Peggy see's the game board as a number from 0 to 14:\n");
-	logTrace("\n");
-	logTrace("             0      \n");
-	logTrace("            1 2     \n");
-	logTrace("          3  4  5   \n");
-	logTrace("        6  7  8  9  \n");
-	logTrace("      10 11 12 13 14\n");
-	logTrace("\n");
-		
-	var startingGameNode = GameNode();
-	startingGameNode.pegBoard = PegBoard(kStartingPegHole);
-	
-	logTrace("Starting a game with hole at position "+kStartingPegHole+"\n");
-	logTrace("Pegs are shown by '"+PEG+"' Holes are shown by '"+HOLE+"'\n");
-		
-	solve(startingGameNode);
-	
-	logTrace("\n\n");
-	dumpLeaderboard();
-
-	mLog.selectionStart = 0;	
-	mLog.selectionEnd = 0;	
+	mModalText.innerText = "Click a (green) peg, then a (gray) hole to make a jump"
+	mModal.style.display = "block";
 });
+
+/*******************************************************************************
+
+*******************************************************************************/
+mSpan.onclick = function() {
+	// When the user clicks on <span> (x), close the modal
+	mModal.style.display = "none";
+}
+
+/*******************************************************************************
+
+*******************************************************************************/
+window.onclick = function(event) {
+	// When the user clicks anywhere outside of the modal, close it
+	if (event.target == mModal) {
+		mModal.style.display = "none";
+	}
+}
 
 /*******************************************************************************
 
@@ -677,6 +708,10 @@ $('#game-board').click(function gameBoardClick(e)
 	}
 });
 
+
+/*******************************************************************************
+
+*******************************************************************************/
 /*******************************************************************************
 
 *******************************************************************************/	
