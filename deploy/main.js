@@ -255,7 +255,18 @@ function advanceGame(inLatestPegHit)
 			case kClickFromState:
 			{
 				if (mCurrentBoard[inLatestPegHit] == HOLE)
-					mGameState = kClickToState;
+				{
+					// Check to see if the "over" slot contains a PEG.
+					var overSlot = findMove(mFromPegIdx, inLatestPegHit);
+					if (overSlot != null && mCurrentBoard[overSlot.over] == PEG)
+						mGameState = kClickToState;
+					else
+					{
+						mErrorState = 2;
+						mFromPegIdx = -1;
+						mGameState = kIdleState;
+					}
+				}
 				else
 				{
 					// If user clicked on their selected peg, deselect it. Error otherwise
